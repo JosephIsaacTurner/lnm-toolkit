@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.ipynb_checkpoints/
+.vscode/
+.ipynb
+
+# NIfTI files
+*.nii
+*.nii.gz
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+
+# IDE-specific files
+.idea/
+
+# Custom logs and outputs
+results/
+outputs/
+joseph_output/
