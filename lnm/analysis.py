@@ -2,58 +2,77 @@
 # lnm-toolkit.analysis.py
 import numpy as np
 from sklearn.utils import Bunch
-from .io import save_results_to_nifti
-from .utils import threshold_and_binarize_overlap_sensitivity, agreement_map
+from prism.preprocessing import ResultSaver
+from .utils import threshold_and_binarize_overlap_sensitivity, agreement_map, conjunction_region_map
 
 
-def network_sensitivity_analysis(network_data, threshold=7, group_threshold=0.75, output_dir=None, mask_img=None) -> Bunch:
+def network_sensitivity_analysis(network_data, threshold=7, group_threshold=0.75, output_prefix=None, mask_img=None) -> Bunch:
     """
     Core math function for sensitivity. 
     Expects purely 2D numpy arrays. Binarizes based on threshold and calculates overlap.
     Returns a Bunch with 1D arrays for raw and thresholded sensitivity.
-    Optionally calls save_results_to_nifti if output_dir is provided.
+    Optionally calls ResultSaver if output_prefix is provided.
     """
     sensitivity_map = threshold_and_binarize_overlap_sensitivity(network_data, threshold=threshold, percent=True)
     
-    thresholded_sensitivity_map = np.where(np.abs(sensitivity_map) >= (group_threshold * 100), sensitivity_map, 0)
-
     results = Bunch(
-        sensitivity_map=sensitivity_map,
-        thresholded_sensitivity_map=thresholded_sensitivity_map
+        sensstat=sensitivity_map
     )
 
-    if output_dir and mask_img:
-        save_results_to_nifti(output_dir, mask_img, results)
+    if output_prefix and mask_img:
+        saver = ResultSaver(output_prefix=output_prefix, mask_img=mask_img)
+        saver.save_results(results)
 
     return results
 
 
-def network_conjunction_analysis(sensitivity_results, glm_results, output_dir=None, mask_img=None) -> Bunch:
+def network_conjunction_analysis(sensitivity_results, glm_results, sensitivity_group_threshold=0.75, alpha=0.05, output_prefix=None, mask_img=None) -> Bunch:
     """
     Runs sensitivity on cases and conjoins it with GLM results.
     Multiplies maps to find agreement and conjunction.
     Expects 2D numpy arrays. Returns a Bunch with all 1D array results.
-    Optionally calls save_results_to_nifti.
+    Optionally calls ResultSaver.
     """
 
     # Sensitivity in cases
-    sensitivity_map = sensitivity_results.thresholded_sensitivity_map
+    sensitivity_map = sensitivity_results.sensstat
 
     # GLM results
-    glm_map = glm_results.tstat # Assuming the key for the t-map is 't_map'
+    # Use tstat as primary key from PRISM
+    glm_map = getattr(glm_results, 'tstat', getattr(glm_results, 'vox_tstat', None))
+    uncp_map = getattr(glm_results, 'tstat_uncp', getattr(glm_results, 'vox_tstat_uncp', None))
+    fdrp_map = getattr(glm_results, 'tstat_fdrp', getattr(glm_results, 'vox_tstat_fdrp', None))
+    fwep_map = getattr(glm_results, 'tstat_fwep', getattr(glm_results, 'vox_tstat_fwep', None))
+    
+    if glm_map is None:
+        raise KeyError("glm_results must contain 'tstat' or 'vox_tstat' key.")
     
     # Conjunction using agreement map
-    conjunction_map = agreement_map(sensitivity_map, glm_map)
+    agreement_stat = agreement_map(sensitivity_map, glm_map, normalize=True)
 
-    results = Bunch(
-        case_sensitivity_map=sensitivity_map,
-        glm_map=glm_map,
-        thresholded_glm_map=glm_map,
-        conjunction_map=conjunction_map,
+    # Conjunction map: 
+    # def conjunction_region_map(sens_map, glm_stat_map, glm_fwep_map, glm_fdrp_map, sensitivity_group_threshold=0.75, alpha=0.05):
+
+    conjunction_fwep_regions, conjunction_fdrp_regions = conjunction_region_map(
+        sens_map=sensitivity_map,
+        glm_stat_map=glm_map,
+        glm_fwep_map=fwep_map,
+        glm_fdrp_map=fdrp_map,
+        sensitivity_group_threshold=sensitivity_group_threshold,
+        alpha=alpha
     )
 
-    if output_dir and mask_img:
-        save_results_to_nifti(output_dir, mask_img, results)
+    results = Bunch(
+        sensstat=sensitivity_map,
+        tstat=glm_map,
+        agreementstat=agreement_stat,
+        conjstat_fwep=conjunction_fwep_regions,
+        conjstat_fdrp=conjunction_fdrp_regions
+    )
+
+    if output_prefix and mask_img:
+        saver = ResultSaver(output_prefix=output_prefix, mask_img=mask_img)
+        saver.save_results(results)
         
     return results
 

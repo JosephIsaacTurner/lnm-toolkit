@@ -92,6 +92,15 @@ except Exception as e:
 
 ## 4. Interpreting the Results
 
-The results of the analysis will be saved in the `results` directory. The `t_stat.nii.gz` file contains the t-statistics for the case-control comparison, and the `p_value.nii.gz` file contains the corresponding p-values.
+The results of the analysis will be saved in the `results` directory. The `_vox_tstat.nii.gz` file contains the t-statistics for the case-control comparison, and the `_vox_stat_uncp.nii.gz` file contains the corresponding uncorrected p-values.
+
+If you run conjunction analysis:
+```python
+conjunction_results = ds.network_conjunction_analysis()
+```
+The results will include:
+- `_vox_sensstat.nii.gz`: Thresholded sensitivity map (overlap of subjects).
+- `_vox_conjstat.nii.gz`: Weighted conjunction of sensitivity and GLM results.
+- `_vox_agreementstat.nii.gz`: Signed binary agreement map.
 
 You can use a NIfTI viewer to visualize the results.

@@ -99,3 +99,17 @@ def agreement_map(map_one, map_two, mask_img=None, normalize=False):
     multiplied[np.logical_and(~positive_mask, ~negative_mask)] = 0
 
     return masker.inverse_transform(np.nan_to_num(multiplied)) if mask_img is not None else np.nan_to_num(multiplied)
+
+def conjunction_region_map(sens_map, glm_stat_map, glm_fwep_map, glm_fdrp_map, sensitivity_group_threshold=0.75, alpha=0.05):
+    """
+    Function to compute a conjunction map between sensitivity and GLM results. The conjunction map is computed by identifying regions where there is agreement between the sensitivity map and the GLM stat map, and where the GLM results are significant at both FWE and FDR corrected levels.
+    """
+    positive_agreement = np.where(np.logical_and(sens_map > (sensitivity_group_threshold * 100), glm_stat_map > 0), 1, 0)
+    negative_agreement = np.where(np.logical_and(sens_map < (-sensitivity_group_threshold * 100), glm_stat_map < 0), -1, 0)
+    significant_positive_agreement_fwep = np.where(np.logical_and(positive_agreement == 1, (1-glm_fwep_map) < alpha), 1, 0)
+    significant_negative_agreement_fwep = np.where(np.logical_and(negative_agreement == -1, (1-glm_fwep_map) < alpha), -1, 0)
+    significant_positive_agreement_fdrp = np.where(np.logical_and(positive_agreement == 1, (1-glm_fdrp_map) < alpha), 1, 0)
+    significant_negative_agreement_fdrp = np.where(np.logical_and(negative_agreement == -1, (1-glm_fdrp_map) < alpha), -1, 0)
+    conjunction_fwep_regions = significant_positive_agreement_fwep + significant_negative_agreement_fwep
+    conjunction_fdrp_regions = significant_positive_agreement_fdrp + significant_negative_agreement_fdrp
+    return conjunction_fwep_regions, conjunction_fdrp_regions

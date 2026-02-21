@@ -70,4 +70,4 @@ Formatting. Do not use em dashes in docstrings or comments. Use colons or commas
 4. Feature Development Backlog
 - [x] utils.py: Finish standardize_data (scale continuous columns, ignore binary dummy variables).
 - [x] dataset.py: Finish add_roi_volume_covar and add_roi_centrality_covar. Check for highly correlated columns in self.design_matrix before appending to avoid rank deficiency in the GLM.
-- [x] analysis.py: Finish the network_conjunction_analysis and network_sensitivity_analysis functions, ensuring they properly route to save_results_to_nifti at the end.
+- [x] analysis.py: Finish the network_conjunction_analysis and network_sensitivity_analysis functions, ensuring they properly route to prism.preprocessing.ResultSaver at the end.

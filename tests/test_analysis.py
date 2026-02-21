@@ -50,7 +50,7 @@ def test_case_control_analysis(participant_data, tmp_path):
     
     # Check that output files were created
     assert os.path.exists(os.path.join(output_dir, '_vox_tstat.nii.gz'))
-    assert os.path.exists(os.path.join(output_dir, '_vox_stat_uncp.nii.gz'))
+    assert os.path.exists(os.path.join(output_dir, '_vox_tstat_uncp.nii.gz'))
     
     # More advanced checks could be added here, e.g., on the result values
     assert results is not None

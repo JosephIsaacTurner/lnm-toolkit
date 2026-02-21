@@ -211,7 +211,8 @@ class LNMDataset:
         and passes it to the standalone network_sensitivity_analysis function.
         """
         if self.cases_control_labels is not None:
-            network_data = self.network_data[self.cases_control_labels]
+            network_data = self.network_data[self.cases_control_labels.astype(bool)]
+            print("shape of network data for sensitivity:", network_data.shape)
         else:
             network_data = self.network_data
 
@@ -219,7 +220,7 @@ class LNMDataset:
             network_data=network_data,
             threshold=threshold,
             group_threshold=group_threshold,
-            output_dir=self.output_dir,
+            output_prefix=self.output_prefix,
             mask_img=self.mask_img
         )
 
@@ -241,7 +242,7 @@ class LNMDataset:
             
         return results
 
-    def network_conjunction_analysis(self, threshold=7, sens_thresh=0.75, spec_thresh=0.75, **kwargs) -> Bunch:
+    def network_conjunction_analysis(self, threshold=7, sens_thresh=0.75, **kwargs) -> Bunch:
         """
         Convenience method. Passes the full dataset and labels to the 
         standalone network_conjunction_analysis function.
