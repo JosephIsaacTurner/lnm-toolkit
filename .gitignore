@@ -14,9 +14,9 @@ venv/
 .vscode/
 .ipynb
 
-# NIfTI files
-*.nii
-*.nii.gz
+# # NIfTI files
+# *.nii
+# *.nii.gz
 
 # Temporary files
 *.tmp
