@@ -36,10 +36,6 @@ plugins:
         python:
           options:
             docstring_style: google
-            show_source: true
-            source_repository: "https://github.com/JosephIsaacTurner/lnm-toolkit"
-            source_branch: "main"
-            source_directory: "."
             show_root_heading: true
             show_object_full_path: false
             separate_signature: true
