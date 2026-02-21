@@ -12,16 +12,38 @@ from . import analysis
 
 
 class LNMDataset:
-    """
-    Main data manager for lesion network mapping. 
+    """Main data manager for lesion network mapping.
+
     Converts 3D NIfTI inputs into flat 2D arrays using a common mask.
     This guarantees that all downstream tools (like PRISM or standalone analyses)
     get perfectly aligned numpy arrays and never have to guess about spatial mapping.
+
+    Attributes:
+        networks (list or np.ndarray): List of NIfTI file paths or a 2D array of network data.
+        mask_img (nib.Nifti1Image or str): Master mask image to define the analysis space.
+        roi_masks (list or np.ndarray, optional): List of NIfTI file paths or a 2D array of ROI masks.
+        design_matrix (np.ndarray, optional): GLM design matrix (n_subjects, n_covariates).
+        contrast_matrix (np.ndarray, optional): GLM contrast matrix.
+        cases_control_labels (np.ndarray, optional): Boolean or 0/1 array indicating cases for sensitivity analysis.
+        statistic (str): The statistic type for PRISM (default 't').
+        output_prefix (str, optional): Prefix for output file paths.
+        control_roi_volume (bool): Whether to automatically add ROI volume as a covariate.
+        control_roi_centrality (bool): Whether to automatically add network centrality as a covariate.
+        add_intercept (bool): Whether to automatically add an intercept column to the design matrix.
+        glm_config (dict, optional): Extra configuration for the PRISM GLM.
+        n_permutations (int): Number of permutations for statistical testing.
+        network_data (np.ndarray): Flattened network data (n_subjects, n_voxels).
+        roi_data (np.ndarray): Flattened ROI data (n_subjects, n_voxels).
+        n_subjects (int): Number of subjects in the dataset.
+        n_voxels (int): Number of voxels within the master mask.
+        roi_volume (np.ndarray): Calculated volume per subject.
+        roi_centrality (np.ndarray): Calculated network centrality per subject.
     """
     def __init__(self, networks, mask_img, roi_masks=None, design_matrix=None, 
                  contrast_matrix=None, cases_control_labels=None, statistic='t', 
                  output_prefix=None, control_roi_volume=False, control_roi_centrality=False, 
                  add_intercept=False, glm_config=None, n_permutations=1000):
+        """Initializes the LNMDataset with necessary parameters."""
         self.networks = networks
         self.mask_img = mask_img
         self.roi_masks = roi_masks
@@ -45,8 +67,8 @@ class LNMDataset:
         self.roi_centrality = None
 
     def load_data(self):
-        """
-        Fuses inputs into the analysis space.
+        """Fuses inputs into the analysis space.
+
         Uses NiftiMasker fitted on self.mask_img to transform networks and roi_masks 
         into (n_subjects, n_voxels) 2D arrays. Sets the subject and voxel counts.
         """
@@ -73,9 +95,10 @@ class LNMDataset:
         self.roi_centrality = self.calculate_roi_centrality(self.network_data, self.roi_data)
 
     def _check_subject_counts(self):
-        """
-        Fails fast if the number of rows in network_data, roi_data, 
-        and design_matrix don't match.
+        """Validates that all input data arrays have matching subject counts.
+
+        Raises:
+            ValueError: If subject counts between networks, ROIs, labels, or design matrix mismatch.
         """
         # Network data is our ground truth for n_subjects
         if self.roi_data is not None and self.roi_data.shape[0] != self.n_subjects:
@@ -89,17 +112,29 @@ class LNMDataset:
 
     @staticmethod
     def calculate_roi_volume(roi_data):
-        """
-        Takes a 2D ROI array and returns a 1D array of non-zero voxel counts per subject.
+        """Calculates ROI volume per subject.
+
+        Args:
+            roi_data (np.ndarray): 2D array of flattened ROI masks.
+
+        Returns:
+            np.ndarray: 1D array of non-zero voxel counts per subject.
         """
         # Simply count non-zero voxels per subject
         return np.count_nonzero(roi_data, axis=1)
 
     @staticmethod
     def calculate_roi_centrality(network_data, roi_data=None):
-        """
-        Returns a 1D array of average network values per subject. 
+        """Calculates average network connectivity per subject.
+
         Excludes voxels falling within the roi_data mask to prevent circularity.
+
+        Args:
+            network_data (np.ndarray): 2D array of flattened network maps.
+            roi_data (np.ndarray, optional): 2D array of flattened ROI masks.
+
+        Returns:
+            np.ndarray: 1D array of average network values per subject.
         """
         if roi_data is not None:
             # Create a boolean mask where ROI is 0 (non-lesion voxels)
@@ -111,9 +146,9 @@ class LNMDataset:
         return np.mean(network_data, axis=1)
     
     def add_roi_volume_covar(self):
-        """
-        Calculates volume and appends it to self.design_matrix. 
-        Checks for collinearity with existing columns first.
+        """Appends standardized ROI volume to the design matrix.
+
+        Checks for collinearity (r < 0.9) with existing columns before appending.
         """
         if self.roi_volume is None:
             return
@@ -140,9 +175,9 @@ class LNMDataset:
             self.design_matrix = combined
 
     def add_roi_centrality_covar(self):
-        """
-        Calculates centrality and appends it to self.design_matrix.
-        Checks for collinearity with existing columns first.
+        """Appends standardized network centrality to the design matrix.
+
+        Checks for collinearity (r < 0.9) with existing columns before appending.
         """
         if self.roi_centrality is None:
             return
@@ -169,9 +204,7 @@ class LNMDataset:
             self.design_matrix = combined
 
     def add_intercept(self):   
-        """
-        Adds an intercept column to the design matrix if it doesn't already exist.
-        """
+        """Adds an intercept column (all ones) to the design matrix if it doesn't exist."""
         if self.design_matrix is None:
             self.design_matrix = np.ones((self.n_subjects, 1))
             return
@@ -183,11 +216,16 @@ class LNMDataset:
         self.design_matrix = np.hstack([self.design_matrix, np.ones((self.n_subjects, 1))])
 
     def prepare_glm_config(self, **kwargs) -> PrismDataset:
-        """
-        The bridge to PRISM.
-        Instantiates a PrismDataset using our pre-computed 2D arrays (network_data, design_matrix). 
-        Crucially, we pass self.mask_img just so PRISM can inverse-transform the results later, 
-        but passing the 2D data forces PRISM to skip its own internal NiftiMasker logic.
+        """Instantiates a PRISM Dataset object for GLM analysis.
+
+        Handles automatic covariate addition and passes pre-computed 2D arrays 
+        directly to PRISM to bypass internal masking.
+
+        Args:
+            **kwargs: Additional parameters passed to PrismDataset.
+
+        Returns:
+            PrismDataset: An initialized PRISM dataset ready for permutation testing.
         """
         if self.control_roi_volume:
             self.add_roi_volume_covar()
@@ -206,13 +244,17 @@ class LNMDataset:
         )
 
     def network_sensitivity_analysis(self, threshold=7, group_threshold=0.75) -> Bunch:
-        """
-        Convenience method. Slices self.network_data for cases (if labels exist) 
-        and passes it to the standalone network_sensitivity_analysis function.
+        """Performs a sensitivity (overlap) analysis on cases.
+
+        Args:
+            threshold (float): Z-score threshold for individual subject binarization.
+            group_threshold (float): Percentage threshold (0-1) for group-level overlap.
+
+        Returns:
+            Bunch: Statistical results containing 'raw_sensstat' and 'sensstat' arrays.
         """
         if self.cases_control_labels is not None:
             network_data = self.network_data[self.cases_control_labels.astype(bool)]
-            print("shape of network data for sensitivity:", network_data.shape)
         else:
             network_data = self.network_data
 
@@ -225,9 +267,13 @@ class LNMDataset:
         )
 
     def network_glm_analysis(self, **kwargs) -> Bunch:
-        """
-        Convenience method. Calls self.prepare_glm_config() to get a PrismDataset, 
-        runs permutation_analysis(), and returns the PRISM results.
+        """Runs a permutation-based GLM using the PRISM backend.
+
+        Args:
+            **kwargs: Parameters passed to PRISM's permutation_analysis.
+
+        Returns:
+            Bunch: Results containing t-stats, p-values, etc. as 1D/2D arrays.
         """
         # 1. Instantiate the PRISM dataset
         prism_ds = self.prepare_glm_config(**kwargs)
@@ -243,9 +289,15 @@ class LNMDataset:
         return results
 
     def network_conjunction_analysis(self, threshold=7, sens_thresh=0.75, **kwargs) -> Bunch:
-        """
-        Convenience method. Passes the full dataset and labels to the 
-        standalone network_conjunction_analysis function.
+        """Conjoins group-level sensitivity with GLM results.
+
+        Args:
+            threshold (float): Individual subject Z-threshold for sensitivity.
+            sens_thresh (float): Group-level sensitivity percentage threshold.
+            **kwargs: Parameters passed to the underlying GLM analysis.
+
+        Returns:
+            Bunch: Results containing sensitivity, GLM, conjunction, and agreement maps.
         """
 
         sensitivity_results = self.network_sensitivity_analysis(threshold=threshold, group_threshold=sens_thresh)

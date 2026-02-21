@@ -7,11 +7,21 @@ from .utils import threshold_and_binarize_overlap_sensitivity, agreement_map, co
 
 
 def network_sensitivity_analysis(network_data, threshold=7, group_threshold=0.75, output_prefix=None, mask_img=None) -> Bunch:
-    """
-    Core math function for sensitivity. 
-    Expects purely 2D numpy arrays. Binarizes based on threshold and calculates overlap.
-    Returns a Bunch with 1D arrays for raw and thresholded sensitivity.
-    Optionally calls ResultSaver if output_prefix is provided.
+    """Core math function for sensitivity (overlap) analysis.
+
+    Expects pre-masked 2D numpy arrays. Binarizes each subject's data based on 
+    the provided threshold and calculates the percentage of subject overlap at each voxel.
+
+    Args:
+        network_data (np.ndarray): 2D array of flattened network maps (n_subjects, n_voxels).
+        threshold (float): Z-score threshold for individual subject binarization.
+        group_threshold (float): Percentage threshold (0-1) for group-level overlap.
+        output_prefix (str, optional): Prefix for saving NIfTI results via ResultSaver.
+        mask_img (nib.Nifti1Image or str, optional): Mask for inverse-transforming results.
+
+    Returns:
+        Bunch: A dictionary-like object containing:
+            - **sensstat**: 1D array of the group-level sensitivity (overlap percentage) map.
     """
     sensitivity_map = threshold_and_binarize_overlap_sensitivity(network_data, threshold=threshold, percent=True)
     
@@ -27,11 +37,29 @@ def network_sensitivity_analysis(network_data, threshold=7, group_threshold=0.75
 
 
 def network_conjunction_analysis(sensitivity_results, glm_results, sensitivity_group_threshold=0.75, alpha=0.05, output_prefix=None, mask_img=None) -> Bunch:
-    """
-    Runs sensitivity on cases and conjoins it with GLM results.
-    Multiplies maps to find agreement and conjunction.
-    Expects 2D numpy arrays. Returns a Bunch with all 1D array results.
-    Optionally calls ResultSaver.
+    """Performs conjunction and agreement analysis between sensitivity and GLM results.
+
+    Conjoins group-level sensitivity maps with GLM statistics to find regions 
+    where significant effects overlap with high subject agreement.
+
+    Args:
+        sensitivity_results (Bunch): Results from `network_sensitivity_analysis`.
+        glm_results (Bunch): Results from `network_glm_analysis` (PRISM output).
+        sensitivity_group_threshold (float): Overlap percentage threshold (default 0.75).
+        alpha (float): Significance threshold for GLM maps (default 0.05).
+        output_prefix (str, optional): Prefix for saving NIfTI results.
+        mask_img (nib.Nifti1Image or str, optional): Mask for inverse-transforming results.
+
+    Returns:
+        Bunch: A dictionary-like object containing:
+            - **sensstat**: The original sensitivity map.
+            - **tstat**: The original GLM T-statistic map.
+            - **agreementstat**: Normalized agreement map (signed product).
+            - **conjstat_fwep**: Binary map of regions passing both sensitivity and FWEp thresholds.
+            - **conjstat_fdrp**: Binary map of regions passing both sensitivity and FDRp thresholds.
+
+    Raises:
+        KeyError: If `glm_results` does not contain a 'tstat' or 'vox_tstat' key.
     """
 
     # Sensitivity in cases

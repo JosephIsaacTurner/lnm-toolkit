@@ -1,0 +1,72 @@
+site_name: lnm-toolkit
+site_description: Documentation for lnm-toolkit
+site_url: https://josephiturner.com/lnm-toolkit/
+repo_url: https://github.com/JosephIsaacTurner/lnm-toolkit
+repo_name: JosephIsaacTurner/lnm-toolkit
+
+theme:
+  name: material
+  features:
+    - navigation.expand
+    - navigation.sections
+    - content.code.annotate
+    - content.code.copy
+    - content.code.highlight
+    - palette.toggle
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            source_repository: "https://github.com/JosephIsaacTurner/lnm-toolkit"
+            source_branch: "main"
+            source_directory: "."
+            show_root_heading: true
+            show_object_full_path: false
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            members_order: source
+            filters:
+              - "!^__"     # hide dunders
+              - "!^_"      # hide private helpers
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quickstart: quickstart.md
+  - API Reference:
+      - Overview: api/index.md
+      - LNMDataset: api/dataset.md
+      - Analysis: api/analysis.md
+      - Loaders: api/loaders.md
+      - Utils: api/utils.md
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - pymdownx.highlight:
+      anchor_linenums: true
+      linenums: true
+      use_pygments: true
+  - pymdownx.superfences
