@@ -4,28 +4,36 @@ To get started with `lnm-toolkit`, you'll need to install the project and its de
 
 ## 1. Prerequisites
 
-The `lnm-toolkit` depends on:
-- Python 3.8+
-- [PRISM](https://github.com/JosephIsaacTurner/prism) library (must be installed manually)
+The `lnm-toolkit` requires:
+- Python 3.9+
 - Standard scientific libraries: `pandas`, `numpy`, `scikit-learn`, `nilearn`, `nibabel`, `scipy`
+- **PRISM**: The permutation-based statistical backend.
 
-## 2. Installing PRISM
+## 2. Quick Install
 
-Since `prism` is not currently available on PyPI, you will need to clone and install it manually:
-
-```bash
-git clone https://github.com/JosephIsaacTurner/prism
-cd prism
-pip install -e .
-```
-
-## 3. Installing lnm-toolkit
-
-Next, clone the `lnm-toolkit` repository and install it in editable mode:
+The easiest way to install `lnm-toolkit` and its dependencies (including `prism-neuro`) is directly from the source repository:
 
 ```bash
 git clone https://github.com/JosephIsaacTurner/lnm-toolkit
 cd lnm-toolkit
+pip install -e .
+```
+
+This will automatically install `prism-neuro` from PyPI.
+
+## 3. Alternative: Manual PRISM Installation
+
+If you need the latest development version of PRISM, you can install it manually before installing the toolkit:
+
+```bash
+pip install prism-neuro
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/JosephIsaacTurner/prism
+cd prism
 pip install -e .
 ```
 

@@ -40,7 +40,9 @@ class LNMDataset:
     def __init__(self, networks, mask_img, roi_masks=None, design_matrix=None, 
                  contrast_matrix=None, cases_control_labels=None, statistic='t', 
                  output_prefix=None, control_roi_volume=False, control_roi_centrality=False, 
-                 add_intercept=False, n_permutations=1000, **glm_config):
+                 add_intercept=False, n_permutations=1000, sensitivity_threshold=7.0,
+                 group_sensitivity_threshold=0.75, save_sensitivity_permutations=False,
+                 **glm_config):
         """Initializes the LNMDataset with necessary parameters."""
         self.networks = networks
         self.mask_img = mask_img
@@ -54,8 +56,9 @@ class LNMDataset:
         self.control_roi_centrality = control_roi_centrality
         self._add_intercept = add_intercept
         self.n_permutations = n_permutations
-        self.sensitivity_threshold = 7.0
-        self.group_sensitivity_threshold = 0.75
+        self.sensitivity_threshold = sensitivity_threshold
+        self.group_sensitivity_threshold = group_sensitivity_threshold
+        self.save_sensitivity_permutations = save_sensitivity_permutations
         self.glm_config = glm_config
         
         # Populated by load_data()
@@ -215,11 +218,15 @@ class LNMDataset:
 
         self.design_matrix = np.hstack([self.design_matrix, np.ones((self.n_subjects, 1))])
 
-    def prepare_glm_config(self) -> PrismDataset:
+    def prepare_glm_config(self, callback=None) -> PrismDataset:
         """Instantiates a PRISM Dataset object for GLM analysis.
 
         Handles automatic covariate addition and passes pre-computed 2D arrays 
         directly to PRISM to bypass internal masking.
+
+        Args:
+            callback (callable, optional): A function to call for progress tracking during 
+                permutation analysis.
 
         Returns:
             PrismDataset: An initialized PRISM dataset ready for permutation testing.
@@ -230,7 +237,8 @@ class LNMDataset:
             self.add_roi_centrality_covar()
         if self._add_intercept:
             self.add_intercept()
-            
+
+        # Later one we'll add the callback, but its not implemented in PRISM yet so we can ignore it for now  
         return PrismDataset(
             data=self.network_data,
             design=self.design_matrix,
@@ -259,14 +267,18 @@ class LNMDataset:
             mask_img=self.mask_img
         )
 
-    def network_glm_analysis(self) -> Bunch:
+    def network_glm_analysis(self, callback=None) -> Bunch:
         """Runs a permutation-based GLM using the PRISM backend.
+
+        Args:
+            callback (callable, optional): A function to call after each permutation 
+                for progress tracking.
 
         Returns:
             Bunch: Results containing t-stats, p-values, etc. as 1D/2D arrays.
         """
         # 1. Instantiate the PRISM dataset
-        prism_ds = self.prepare_glm_config()
+        prism_ds = self.prepare_glm_config(callback=callback)
         
         # 2. Run the permutation analysis via the analysis module's wrapper
         results = prism_ds.permutation_analysis()
@@ -295,9 +307,13 @@ class LNMDataset:
             mask_img=self.mask_img
         )
 
-    def network_sensitivity_permutation_analysis(self) -> Bunch:
+    def network_sensitivity_permutation_analysis(self, callback=None) -> Bunch:
         """
         Performs permutation analysis for network sensitivity maps.
+
+        Args:
+            callback (callable, optional): A function to call after each permutation 
+                for progress tracking.
 
         Returns:
             Bunch: Contains permuted sensitivity maps for all permutations.
@@ -310,7 +326,8 @@ class LNMDataset:
             permuted_indices=permutation_indices,
             cases_control_labels=self.cases_control_labels,
             threshold=self.sensitivity_threshold,
-            group_threshold=self.group_sensitivity_threshold,
             output_prefix=self.output_prefix,
-            mask_img=self.mask_img
+            mask_img=self.mask_img,
+            save_sensitivity_permutations=self.save_sensitivity_permutations,
+            callback=callback
         )

@@ -2,6 +2,9 @@
 
 The `lnm-toolkit` API is organized around several core modules:
 
+## Key Components
+
+- **[CLI Tool](../cli.md)**: High-level command-line tool `lnm` for automated analysis.
 - **[LNMDataset](dataset.md)**: The primary data manager and analysis entry point.
 - **[Analysis](analysis.md)**: Standalone mathematical functions for sensitivity and conjunction mapping.
 - **[Loaders](loaders.md)**: Convenience classes for loading and preprocessing NIfTI data from DataFrames.

@@ -1,5 +1,6 @@
 
 # lnm-toolkit.analysis.py
+from math import perm
 import numpy as np
 from sklearn.utils import Bunch
 from prism.preprocessing import ResultSaver
@@ -118,7 +119,7 @@ def network_conjunction_analysis(sensitivity_results, glm_results, sensitivity_g
     return results
 
 
-def network_sensitivity_permutation_analysis(full_network_data, permuted_indices, cases_control_labels, threshold=7, group_threshold=0.75, output_prefix=None, mask_img=None):
+def network_sensitivity_permutation_analysis(full_network_data, permuted_indices, cases_control_labels, threshold=7, output_prefix=None, mask_img=None, save_sensitivity_permutations=False, callback=None):
     """Performs permutation analysis for network sensitivity maps.
 
     Iterates through permuted indices, recalculates sensitivity maps for each 
@@ -132,26 +133,33 @@ def network_sensitivity_permutation_analysis(full_network_data, permuted_indices
         group_threshold (float): Percentage threshold (0-1) for group-level overlap.
         output_prefix (str, optional): Prefix for saving results.
         mask_img (nib.Nifti1Image or str, optional): Mask for inverse-transforming results.
+        callback (callable, optional): A function to call after each permutation for progress tracking.
+            Expected signature: `callback(current_iteration, total_iterations)`.
 
     Returns:
         Bunch: A dictionary-like object containing:
             - **permuted_sensitivity_maps**: 2D array of permuted sensitivity maps (n_permutations, n_voxels).
     """
     n_permutations = permuted_indices.shape[0]
-    result_saver = ResultSaver(output_prefix=output_prefix, mask_img=mask_img, save_permutations=True, permutation_output_dir=os.path.join(os.path.dirname(output_prefix), "sensitivity_permutations")) if output_prefix and mask_img else None
+    result_saver = ResultSaver(output_prefix=output_prefix, mask_img=mask_img, save_permutations=True, permutation_output_dir=os.path.join(os.path.dirname(output_prefix), "sensitivity_permutations")) if (output_prefix and mask_img and save_sensitivity_permutations) else None
     permuted_sensitivity_maps = np.zeros((n_permutations, full_network_data.shape[1]))
-    for i in tqdm(range(n_permutations), desc="Running sensitivity permutations"):
+    
+    pbar = tqdm(range(n_permutations), desc="Running sensitivity permutations")
+    for i in pbar:
         permuted_idx = permuted_indices[i]
         permuted_data = full_network_data[permuted_idx, :]
         if cases_control_labels is not None:
             permuted_data = permuted_data[cases_control_labels.astype(bool), :]
             permuted_sensitivity_map = threshold_and_binarize_overlap_sensitivity(permuted_data, threshold=threshold, percent=True)
             permuted_sensitivity_maps[i, :] = permuted_sensitivity_map
-            if result_saver is not None:
-                # def save_permutation(self, permuted_stats, perm_idx, contrast_idx, *args, **kwargs):
+            if result_saver is not None and save_sensitivity_permutations:
                 result_saver.save_permutation(
                     permuted_stats=permuted_sensitivity_map,
                     perm_idx=i,
-                    contrast_idx=0,  # Assuming a single contrast for sensitivity analysis
+                    contrast_idx=0,
                 )
-    return Bunch(permuted_sensitivity_maps=permuted_sensitivity_maps)
+        
+        if callback:
+            callback(i + 1, n_permutations)
+            
+    return Bunch(permuted_sensitivity_maps=permuted_sensitivity_maps, permuted_indices=permuted_indices)

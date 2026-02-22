@@ -50,6 +50,7 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Quickstart: quickstart.md
+  - CLI Tool: cli.md
   - API Reference:
       - Overview: api/index.md
       - LNMDataset: api/dataset.md

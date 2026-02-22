@@ -1,14 +1,20 @@
 # LNM-Toolkit
 
-A comprehensive toolkit for Lesion-to-Network Mapping (LNM) analysis.
+A comprehensive and high-performance Python library for **Lesion-to-Network Mapping (LNM)** analysis.
 
 ## Overview
 
-The `lnm-toolkit` provides tools for analyzing the relationship between focal brain lesions and brain networks. It supports:
-- **Sensitivity Analysis**: Calculating subject overlap maps.
-- **GLM Analysis**: Permutation-based General Linear Models (via the `prism` backend).
-- **Conjunction Analysis**: Identifying regions that are both significant in the GLM and have high subject overlap.
-- **CLI Tool**: Easy-to-use command-line interface for running complex analyses.
+The `lnm-toolkit` provides a specialized workflow for investigating the relationship between focal brain lesions and brain networks. While originally designed for lesion mapping, the underlying techniques generalize to any analysis of Regions of Interest (ROIs) and their connectivity profiles, including:
+- **TMS-Network Mapping**: Analyzing connectivity of stimulation targets.
+- **DBS-Network Mapping**: Analyzing connectivity of electrode locations.
+- **General ROI Connectivity**: Any analysis comparing focal ROIs across subjects and their functional/structural connectivity maps.
+
+### What it Does
+- **Analyzes Pre-Generated Connectivity Maps**: This toolkit assumes you have already generated connectivity maps (e.g., using a normative connectome) for each subject and saved them as NIfTI images.
+- **Subject Data Loading**: Easily load data using a CSV file containing filepaths to subject-level network and ROI data.
+- **Sensitivity Analysis**: Calculate subject overlap percentages at every voxel.
+- **GLM Analysis**: Perform robust permutation-based General Linear Models (via the **PRISM** backend) to compare groups while controlling for covariates like age, sex, or ROI volume.
+- **Conjunction Analysis**: Identify regions where significant statistical effects overlap with high subject agreement.
 
 ## Installation
 
@@ -17,31 +23,31 @@ The `lnm-toolkit` provides tools for analyzing the relationship between focal br
 conda create -n analysis_env python=3.13
 conda activate analysis_env
 
-# Install dependencies (including prism)
-# ... instructions for prism installation ...
-
-# Install the toolkit
+# Install the toolkit directly from the repository
+# This will automatically install dependencies like prism-neuro from PyPI
 pip install -e .
 ```
 
 ## Quick Start
 
-See [QUICKSTART.md](QUICKSTART.md) for a detailed guide on running your first analysis.
+The easiest way to get started is to use a CSV file with your subject data and run the `lnm` command-line tool.
 
-### Command Line Interface
+### CLI Example: Case-Control Conjunction
 
 ```bash
-lnm --csv example_data/aphasia_recovery_participants.csv 
-    --subject-col subject 
-    --network-col t 
-    --roi-col roi_2mm 
-    --output-prefix results/my_analysis 
-    --analysis conjunction 
-    --filter-col wab_type 
-    --filter-values Broca NoAphasia 
-    --contrast-col wab_type 
-    --contrast-values Broca NoAphasia
+lnm --csv participants.csv \
+    --subject-col subject \
+    --network-col network_filepaths \
+    --roi-col roi_filepaths \
+    --output-prefix results/my_analysis \
+    --analysis conjunction \
+    --filter-col group \
+    --filter-values cases controls \
+    --contrast-col group \
+    --contrast-values cases controls
 ```
+
+For a more detailed guide, see [QUICKSTART.md](QUICKSTART.md).
 
 ## Documentation
 

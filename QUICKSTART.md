@@ -4,15 +4,13 @@ This document provides a quick overview of how to perform a case-control analysi
 
 ## 1. Installation
 
-First, make sure you have the necessary dependencies installed. You can install them using conda:
+First, make sure you have the necessary dependencies installed. You can install them using conda or pip:
 
 ```bash
 conda activate analysis_env
-# Install the toolkit in editable mode
+# Install the toolkit in editable mode (will install prism-neuro from PyPI)
 pip install -e .
 ```
-
-The `lnm-toolkit` depends on the `prism` library, which should already be available in the `analysis_env` environment.
 
 ## 2. Using the CLI (Recommended)
 
@@ -62,6 +60,8 @@ filtered_df = df[df['wab_type'].isin(['Broca', 'NoAphasia'])].copy()
 
 # 1 for Broca (cases), 0 for NoAphasia (controls)
 group_labels = (filtered_df['wab_type'] == 'Broca').astype(int).values
+# Covariates: age_at_stroke
+covariates = filtered_df[['age_at_stroke']].values
 
 # Load data
 loader = PandasDatasetLoader(
@@ -70,8 +70,9 @@ loader = PandasDatasetLoader(
     network_col='t',
     mask_col='roi_2mm',
     output_prefix='results/api_test',
-    design_matrix=group_labels.reshape(-1, 1),
-    contrast_matrix=np.array([1, 0]), # Assuming 1 covariate + intercept might be added
+    # Combine group labels and covariates for the design matrix
+    design_matrix=np.column_stack([group_labels, covariates]),
+    contrast_matrix=np.array([1, 0, 0]), # Contrast for group_labels, 0 for age, 0 for intercept
     cases_control_labels=group_labels,
     add_intercept=True,
     n_permutations=100
@@ -79,7 +80,12 @@ loader = PandasDatasetLoader(
 ds = loader.load()
 
 # Run conjunction analysis
+# This automatically saves results as NIfTIs with the output_prefix
 results = ds.network_conjunction_analysis()
+
+# results contains flattened numpy arrays. To get a NIfTI image back:
+masker = ds.prepare_glm_config().masker
+sens_img = masker.inverse_transform(results.sensstat)
 ```
 
 ## 4. Interpreting Output Files

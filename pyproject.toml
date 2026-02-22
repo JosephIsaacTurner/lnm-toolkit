@@ -13,7 +13,8 @@ dependencies = [
   "numpy",
   "pandas",
   "nilearn",
-  "scikit-learn"
+  "scikit-learn",  
+  "prism-neuro"
 ]
 readme = "README.md"
 requires-python = ">=3.9"
