@@ -4,103 +4,89 @@ This document provides a quick overview of how to perform a case-control analysi
 
 ## 1. Installation
 
-First, make sure you have the necessary dependencies installed. You can install them using pip:
+First, make sure you have the necessary dependencies installed. You can install them using conda:
 
 ```bash
-pip install pandas nilearn scikit-learn
-```
-
-The `lnm-toolkit` also depends on the `prism` library, which is not available on PyPI. You will need to install it manually. Please make sure it is available in your Python environment.
-
-Next, install the `lnm-toolkit` in editable mode:
-
-```bash
+conda activate analysis_env
+# Install the toolkit in editable mode
 pip install -e .
 ```
 
-## 2. Data Preparation
+The `lnm-toolkit` depends on the `prism` library, which should already be available in the `analysis_env` environment.
 
-The example data is located in the `example_data` directory. The `participants.csv` file contains the metadata for the subjects, including the `wab_type` column, which we will use for case-control analysis.
+## 2. Using the CLI (Recommended)
 
-We will filter the data to include only subjects with `wab_type` of 'Broca' or 'NoAphasia'.
+The easiest way to run an analysis is using the `lnm` command-line tool.
+
+### Example: Case-Control Conjunction Analysis
+
+To compare two groups (e.g., 'Broca' vs 'NoAphasia' in the `wab_type` column), controlling for `age_at_stroke`, you can run:
+
+```bash
+lnm --csv example_data/aphasia_recovery_participants.csv \
+    --subject-col subject \
+    --network-col t \
+    --roi-col roi_2mm \
+    --output-prefix results/aphasia_analysis \
+    --analysis conjunction \
+    --filter-col wab_type \
+    --filter-values Broca NoAphasia \
+    --contrast-col wab_type \
+    --contrast-values Broca NoAphasia \
+    --covariates age_at_stroke \
+    --add-intercept \
+    --n-permutations 1000
+```
+
+This will:
+1. Load the participant CSV.
+2. Filter for subjects where `wab_type` is 'Broca' or 'NoAphasia'.
+3. Run a GLM comparing these two groups while controlling for `age_at_stroke`.
+4. Run a sensitivity analysis on the 'Broca' group (cases).
+5. Perform a conjunction between the sensitivity and GLM results.
+
+## 3. Using the Python API
+
+If you prefer to work in a notebook or script, you can use the `LNMDataset` class.
 
 ```python
 import pandas as pd
+import numpy as np
+from lnm import PandasDatasetLoader
 
 # Load the participant data
-participant_data = pd.read_csv('example_data/participants.csv')
+df = pd.read_csv('example_data/aphasia_recovery_participants.csv')
 
 # Filter for Broca and NoAphasia
-filtered_df = participant_data[participant_data['wab_type'].isin(['Broca', 'NoAphasia'])].copy()
+filtered_df = df[df['wab_type'].isin(['Broca', 'NoAphasia'])].copy()
 
-# Create a case-control column (1 for Broca, 0 for NoAphasia)
-filtered_df['case_control'] = (filtered_df['wab_type'] == 'Broca').astype(int)
-```
+# 1 for Broca (cases), 0 for NoAphasia (controls)
+group_labels = (filtered_df['wab_type'] == 'Broca').astype(int).values
 
-## 3. Running the Analysis
-
-Now, we can use the `PandasDatasetLoader` and `LNMDataset` classes to run the analysis.
-
-```python
-from lnm import LNMDataset, PandasDatasetLoader
-import numpy as np
-
-# Define paths
-data_dir = 'example_data'
-output_dir = 'results'
-
-# Load data using PandasDatasetLoader
+# Load data
 loader = PandasDatasetLoader(
     df=filtered_df,
     subject_col='subject',
-    nifti_col='t',
+    network_col='t',
     mask_col='roi_2mm',
-    data_dir=data_dir
+    output_prefix='results/api_test',
+    design_matrix=group_labels.reshape(-1, 1),
+    contrast_matrix=np.array([1, 0]), # Assuming 1 covariate + intercept might be added
+    cases_control_labels=group_labels,
+    add_intercept=True,
+    n_permutations=100
 )
-data = loader.load()
+ds = loader.load()
 
-# Create the dataset
-ds = LNMDataset(
-    networks=data.networks,
-    mask_img=data.mask_img,
-    roi_masks=data.roi_masks,
-    output_dir=output_dir,
-    control_roi_volume=True,
-    control_roi_centrality=True
-)
-ds.load_data()
-
-# Create design matrix
-ds.design_matrix = data.design_matrix[['case_control']].values
-ds.add_roi_volume_covar()
-ds.add_roi_centrality_covar()
-
-# Define contrast matrix
-ds.contrast_matrix = np.array([1, 0, 0])
-
-# Run GLM analysis
-# This will fail if prism is not installed
-try:
-    results = ds.network_glm_analysis()
-    print("GLM analysis complete. Results saved in the 'results' directory.")
-except ModuleNotFoundError:
-    print("GLM analysis failed. Please make sure the 'prism' library is installed.")
-except Exception as e:
-    print(f"An error occurred during GLM analysis: {e}")
-
+# Run conjunction analysis
+results = ds.network_conjunction_analysis()
 ```
 
-## 4. Interpreting the Results
+## 4. Interpreting Output Files
 
-The results of the analysis will be saved in the `results` directory. The `_vox_tstat.nii.gz` file contains the t-statistics for the case-control comparison, and the `_vox_stat_uncp.nii.gz` file contains the corresponding uncorrected p-values.
-
-If you run conjunction analysis:
-```python
-conjunction_results = ds.network_conjunction_analysis()
-```
-The results will include:
-- `_vox_sensstat.nii.gz`: Thresholded sensitivity map (overlap of subjects).
-- `_vox_conjstat.nii.gz`: Weighted conjunction of sensitivity and GLM results.
-- `_vox_agreementstat.nii.gz`: Signed binary agreement map.
-
-You can use a NIfTI viewer to visualize the results.
+The results will be saved as NIfTI files with the specified prefix:
+- `_vox_sensstat.nii.gz`: Overlap percentage map of the cases.
+- `_vox_tstat.nii.gz`: T-statistic map from the GLM.
+- `_vox_conjstat_fwep.nii.gz`: Conjunction map showing regions passing both sensitivity and FWEp thresholds.
+- `_vox_conjstat_fdrp.nii.gz`: Conjunction map showing regions passing both sensitivity and FDRp thresholds.
+- `_vox_agreementstat.nii.gz`: Signed agreement map.

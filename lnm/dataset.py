@@ -237,6 +237,7 @@ class LNMDataset:
             contrast=self.contrast_matrix,
             output_prefix=self.output_prefix,
             n_permutations=self.n_permutations,
+            mask_img=self.mask_img,
             **self.glm_config
         )
 
@@ -254,7 +255,6 @@ class LNMDataset:
         return analysis.network_sensitivity_analysis(
             network_data=network_data,
             threshold=self.sensitivity_threshold,
-            group_threshold=self.group_sensitivity_threshold,
             output_prefix=self.output_prefix,
             mask_img=self.mask_img
         )
@@ -295,3 +295,22 @@ class LNMDataset:
             mask_img=self.mask_img
         )
 
+    def network_sensitivity_permutation_analysis(self) -> Bunch:
+        """
+        Performs permutation analysis for network sensitivity maps.
+
+        Returns:
+            Bunch: Contains permuted sensitivity maps for all permutations.
+        """
+        prism_ds = self.prepare_glm_config()
+        permutation_indices = prism_ds.generate_permutation_indices()
+        permutation_indices = list(permutation_indices.values())[0]
+        return analysis.network_sensitivity_permutation_analysis(
+            full_network_data=self.network_data,
+            permuted_indices=permutation_indices,
+            cases_control_labels=self.cases_control_labels,
+            threshold=self.sensitivity_threshold,
+            group_threshold=self.group_sensitivity_threshold,
+            output_prefix=self.output_prefix,
+            mask_img=self.mask_img
+        )
