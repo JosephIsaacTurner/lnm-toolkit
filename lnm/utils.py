@@ -139,12 +139,14 @@ def conjunction_region_map(sens_map, glm_stat_map, glm_fwep_map, glm_fdrp_map, s
     conjunction_fwep_regions = significant_positive_agreement_fwep + significant_negative_agreement_fwep
     conjunction_fdrp_regions = significant_positive_agreement_fdrp + significant_negative_agreement_fdrp
     return conjunction_fwep_regions, conjunction_fdrp_regions
-    positive_agreement = np.where(np.logical_and(sens_map > (sensitivity_group_threshold * 100), glm_stat_map > 0), 1, 0)
-    negative_agreement = np.where(np.logical_and(sens_map < (-sensitivity_group_threshold * 100), glm_stat_map < 0), -1, 0)
-    significant_positive_agreement_fwep = np.where(np.logical_and(positive_agreement == 1, (1-glm_fwep_map) < alpha), 1, 0)
-    significant_negative_agreement_fwep = np.where(np.logical_and(negative_agreement == -1, (1-glm_fwep_map) < alpha), -1, 0)
-    significant_positive_agreement_fdrp = np.where(np.logical_and(positive_agreement == 1, (1-glm_fdrp_map) < alpha), 1, 0)
-    significant_negative_agreement_fdrp = np.where(np.logical_and(negative_agreement == -1, (1-glm_fdrp_map) < alpha), -1, 0)
-    conjunction_fwep_regions = significant_positive_agreement_fwep + significant_negative_agreement_fwep
-    conjunction_fdrp_regions = significant_positive_agreement_fdrp + significant_negative_agreement_fdrp
-    return conjunction_fwep_regions, conjunction_fdrp_regions
+
+    # permute_fn(permuted_stats, perm_idx, contrast_idx, two_tailed)
+def sensitivity_permute_callback(permuted_stats, perm_idx, contrast_idx, two_tailed, permuted_indices):
+    """Callback function for PRISM permutation testing to compute sensitivity stats.
+    The perm_idx should be a re-arranged order of the original design_matrix rows.
+    Let's re-arrange case/control labels according to the permuted order, and then 
+    compute the sensitivity stats for this permutation.
+    The first four params here are required for integration with PRISM, but totally irrelevant for our purposes.
+    Only permuted_indices is relevant here.
+    """
+    pass

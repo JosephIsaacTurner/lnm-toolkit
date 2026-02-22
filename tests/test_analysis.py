@@ -9,7 +9,7 @@ import nibabel as nib
 
 @pytest.fixture
 def participant_data():
-    return pd.read_csv('example_data/participants.csv')
+    return pd.read_csv('example_data/aphasia_recovery_participants.csv')
 
 def test_case_control_analysis(participant_data, tmp_path):
     # Filter data for Broca and NoAphasia
@@ -17,6 +17,7 @@ def test_case_control_analysis(participant_data, tmp_path):
     
     # Create a case-control column
     filtered_df['case_control'] = (filtered_df['wab_type'] == 'Broca').astype(int)
+    filtered_df.reset_index(drop=True, inplace=True)
     
     # Define paths
     output_dir = str(tmp_path)

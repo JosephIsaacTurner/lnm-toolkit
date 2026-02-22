@@ -32,3 +32,4 @@ venv/
 results/
 outputs/
 joseph_output/
+example_data/aphasia_recovery_participants_local.csv

@@ -1,8 +1,6 @@
 # lnm-toolkit/dataset.py
 
 import numpy as np
-import os
-import nibabel as nib
 from sklearn.utils import Bunch
 from sklearn.preprocessing import StandardScaler
 from prism.datasets import Dataset as PrismDataset
@@ -42,7 +40,7 @@ class LNMDataset:
     def __init__(self, networks, mask_img, roi_masks=None, design_matrix=None, 
                  contrast_matrix=None, cases_control_labels=None, statistic='t', 
                  output_prefix=None, control_roi_volume=False, control_roi_centrality=False, 
-                 add_intercept=False, glm_config=None, n_permutations=1000):
+                 add_intercept=False, n_permutations=1000, **glm_config):
         """Initializes the LNMDataset with necessary parameters."""
         self.networks = networks
         self.mask_img = mask_img
@@ -55,8 +53,10 @@ class LNMDataset:
         self.control_roi_volume = control_roi_volume
         self.control_roi_centrality = control_roi_centrality
         self._add_intercept = add_intercept
-        self.glm_config = glm_config
         self.n_permutations = n_permutations
+        self.sensitivity_threshold = 7.0
+        self.group_sensitivity_threshold = 0.75
+        self.glm_config = glm_config
         
         # Populated by load_data()
         self.network_data = None
@@ -215,14 +215,11 @@ class LNMDataset:
 
         self.design_matrix = np.hstack([self.design_matrix, np.ones((self.n_subjects, 1))])
 
-    def prepare_glm_config(self, **kwargs) -> PrismDataset:
+    def prepare_glm_config(self) -> PrismDataset:
         """Instantiates a PRISM Dataset object for GLM analysis.
 
         Handles automatic covariate addition and passes pre-computed 2D arrays 
         directly to PRISM to bypass internal masking.
-
-        Args:
-            **kwargs: Additional parameters passed to PrismDataset.
 
         Returns:
             PrismDataset: An initialized PRISM dataset ready for permutation testing.
@@ -240,15 +237,11 @@ class LNMDataset:
             contrast=self.contrast_matrix,
             output_prefix=self.output_prefix,
             n_permutations=self.n_permutations,
-            **kwargs
+            **self.glm_config
         )
 
-    def network_sensitivity_analysis(self, threshold=7, group_threshold=0.75) -> Bunch:
+    def network_sensitivity_analysis(self) -> Bunch:
         """Performs a sensitivity (overlap) analysis on cases.
-
-        Args:
-            threshold (float): Z-score threshold for individual subject binarization.
-            group_threshold (float): Percentage threshold (0-1) for group-level overlap.
 
         Returns:
             Bunch: Statistical results containing 'raw_sensstat' and 'sensstat' arrays.
@@ -260,23 +253,20 @@ class LNMDataset:
 
         return analysis.network_sensitivity_analysis(
             network_data=network_data,
-            threshold=threshold,
-            group_threshold=group_threshold,
+            threshold=self.sensitivity_threshold,
+            group_threshold=self.group_sensitivity_threshold,
             output_prefix=self.output_prefix,
             mask_img=self.mask_img
         )
 
-    def network_glm_analysis(self, **kwargs) -> Bunch:
+    def network_glm_analysis(self) -> Bunch:
         """Runs a permutation-based GLM using the PRISM backend.
-
-        Args:
-            **kwargs: Parameters passed to PRISM's permutation_analysis.
 
         Returns:
             Bunch: Results containing t-stats, p-values, etc. as 1D/2D arrays.
         """
         # 1. Instantiate the PRISM dataset
-        prism_ds = self.prepare_glm_config(**kwargs)
+        prism_ds = self.prepare_glm_config()
         
         # 2. Run the permutation analysis via the analysis module's wrapper
         results = prism_ds.permutation_analysis()
@@ -288,20 +278,15 @@ class LNMDataset:
             
         return results
 
-    def network_conjunction_analysis(self, threshold=7, sens_thresh=0.75, **kwargs) -> Bunch:
+    def network_conjunction_analysis(self) -> Bunch:
         """Conjoins group-level sensitivity with GLM results.
-
-        Args:
-            threshold (float): Individual subject Z-threshold for sensitivity.
-            sens_thresh (float): Group-level sensitivity percentage threshold.
-            **kwargs: Parameters passed to the underlying GLM analysis.
 
         Returns:
             Bunch: Results containing sensitivity, GLM, conjunction, and agreement maps.
         """
 
-        sensitivity_results = self.network_sensitivity_analysis(threshold=threshold, group_threshold=sens_thresh)
-        glm_results = self.network_glm_analysis(**kwargs)
+        sensitivity_results = self.network_sensitivity_analysis()
+        glm_results = self.network_glm_analysis()
 
         return analysis.network_conjunction_analysis(
             sensitivity_results=sensitivity_results,
